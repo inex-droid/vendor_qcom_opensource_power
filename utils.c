@@ -75,13 +75,13 @@ static void* get_qcopt_handle() {
     if (property_get("ro.vendor.extension_library", qcopt_lib_path, NULL)) {
         handle = dlopen(qcopt_lib_path, RTLD_NOW);
         if (!handle) {
-            ALOGE("Unable to open %s: %s\n", qcopt_lib_path, dlerror());
+            ALOGV("Unable to open %s: %s\n", qcopt_lib_path, dlerror());
         }
     }
     if (!handle) {
         handle = dlopen(PERF_HAL_PATH, RTLD_NOW);
         if (!handle) {
-            ALOGE("Unable to open %s: %s\n", PERF_HAL_PATH, dlerror());
+            ALOGV("Unable to open %s: %s\n", PERF_HAL_PATH, dlerror());
         }
     }
 
@@ -92,7 +92,7 @@ static void __attribute__((constructor)) initialize(void) {
     qcopt_handle = get_qcopt_handle();
 
     if (!qcopt_handle) {
-        ALOGE("Failed to get qcopt handle.\n");
+        ALOGV("Failed to get qcopt handle.\n");
     } else {
         /*
          * qc-opt handle obtained. Get the perflock acquire/release
@@ -101,26 +101,26 @@ static void __attribute__((constructor)) initialize(void) {
         perf_lock_acq = dlsym(qcopt_handle, "perf_lock_acq");
 
         if (!perf_lock_acq) {
-            ALOGE("Unable to get perf_lock_acq function handle.\n");
+            ALOGV("Unable to get perf_lock_acq function handle.\n");
         }
 
         perf_lock_rel = dlsym(qcopt_handle, "perf_lock_rel");
 
         if (!perf_lock_rel) {
-            ALOGE("Unable to get perf_lock_rel function handle.\n");
+            ALOGV("Unable to get perf_lock_rel function handle.\n");
         }
 
         perf_hint = dlsym(qcopt_handle, "perf_hint");
 
         if (!perf_hint) {
-            ALOGE("Unable to get perf_hint function handle.\n");
+            ALOGV("Unable to get perf_hint function handle.\n");
         }
     }
 }
 
 static void __attribute__((destructor)) cleanup(void) {
     if (qcopt_handle) {
-        if (dlclose(qcopt_handle)) ALOGE("Error occurred while closing qc-opt library.");
+        if (dlclose(qcopt_handle)) ALOGV("Error occurred while closing qc-opt library.");
     }
 }
 
@@ -132,14 +132,14 @@ int sysfs_read(const char* path, char* s, int num_bytes) {
 
     if (fd < 0) {
         strerror_r(errno, buf, sizeof(buf));
-        ALOGE("Error opening %s: %s\n", path, buf);
+        ALOGV("Error opening %s: %s\n", path, buf);
 
         return -1;
     }
 
     if ((count = read(fd, s, num_bytes - 1)) < 0) {
         strerror_r(errno, buf, sizeof(buf));
-        ALOGE("Error writing to %s: %s\n", path, buf);
+        ALOGV("Error writing to %s: %s\n", path, buf);
 
         ret = -1;
     } else {
@@ -159,14 +159,14 @@ int sysfs_write(const char* path, char* s) {
 
     if (fd < 0) {
         strerror_r(errno, buf, sizeof(buf));
-        ALOGE("Error opening %s: %s\n", path, buf);
+        ALOGV("Error opening %s: %s\n", path, buf);
         return -1;
     }
 
     len = write(fd, s, strlen(s));
     if (len < 0) {
         strerror_r(errno, buf, sizeof(buf));
-        ALOGE("Error writing to %s: %s\n", path, buf);
+        ALOGV("Error writing to %s: %s\n", path, buf);
 
         ret = -1;
     }
@@ -220,7 +220,7 @@ void interaction(int duration, int num_args, int opt_list[]) {
     if (qcopt_handle) {
         if (perf_lock_acq) {
             lock_handle = perf_lock_acq(lock_handle, duration, opt_list, num_args);
-            if (lock_handle == -1) ALOGE("Failed to acquire lock.");
+            if (lock_handle == -1) ALOGV("Failed to acquire lock.");
         }
     }
 #endif
@@ -232,7 +232,7 @@ int interaction_with_handle(int lock_handle, int duration, int num_args, int opt
     if (qcopt_handle) {
         if (perf_lock_acq) {
             lock_handle = perf_lock_acq(lock_handle, duration, opt_list, num_args);
-            if (lock_handle == -1) ALOGE("Failed to acquire lock.");
+            if (lock_handle == -1) ALOGV("Failed to acquire lock.");
         }
     }
     return lock_handle;
@@ -248,7 +248,7 @@ int perf_hint_enable(int hint_id, int duration) {
     if (qcopt_handle) {
         if (perf_hint) {
             lock_handle = perf_hint(hint_id, pkg, duration, -1);
-            if (lock_handle == -1) ALOGE("Failed to acquire lock for hint_id: %X.", hint_id);
+            if (lock_handle == -1) ALOGV("Failed to acquire lock for hint_id: %X.", hint_id);
         }
     }
     return lock_handle;
@@ -262,7 +262,7 @@ int perf_hint_enable_with_type(int hint_id, int duration, int type) {
     if (qcopt_handle) {
         if (perf_hint) {
             lock_handle = perf_hint(hint_id, NULL, duration, type);
-            if (lock_handle == -1) ALOGE("Failed to acquire lock.");
+            if (lock_handle == -1) ALOGV("Failed to acquire lock.");
         }
     }
     return lock_handle;
@@ -278,7 +278,7 @@ int perform_hint_action(int hint_id, int resource_values[], int num_resources) {
         int lock_handle = perf_lock_acq(0, 0, resource_values, num_resources);
 
         if (lock_handle == -1) {
-            ALOGE("Failed to acquire lock.");
+            ALOGV("Failed to acquire lock.");
             return -EINVAL;
         }
 
@@ -288,7 +288,7 @@ int perform_hint_action(int hint_id, int resource_values[], int num_resources) {
         if (!new_hint) {
             /* Can't keep track of this lock. Release it. */
             if (perf_lock_rel) perf_lock_rel(lock_handle);
-            ALOGE("Failed to process hint.");
+            ALOGV("Failed to process hint.");
             return -ENOMEM;
         }
 
@@ -304,7 +304,7 @@ int perform_hint_action(int hint_id, int resource_values[], int num_resources) {
             free(new_hint);
             /* Can't keep track of this lock. Release it. */
             if (perf_lock_rel) perf_lock_rel(lock_handle);
-            ALOGE("Failed to process hint.");
+            ALOGV("Failed to process hint.");
             return -ENOMEM;
         }
     }
@@ -326,7 +326,7 @@ void undo_hint_action(int hint_id) {
 
                 if (found_hint_data) {
                     if (perf_lock_rel(found_hint_data->perflock_handle) == -1)
-                        ALOGE("Perflock release failed.");
+                        ALOGV("Perflock release failed.");
                 }
 
                 if (found_node->data) {
@@ -336,7 +336,7 @@ void undo_hint_action(int hint_id) {
 
                 remove_list_node(&active_hint_list_head, found_node);
             } else {
-                ALOGE("Invalid hint ID.");
+                ALOGV("Invalid hint ID.");
             }
         }
     }
